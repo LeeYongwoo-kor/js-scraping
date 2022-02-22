@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer";
 
 const main = async () => {
-  let browser = await puppeteer.launch({ headless: false });
+  let browser = await puppeteer.launch({ headless: true });
   // 브라우저 띄우기
   let page = await browser.newPage();
   // 페이지 띄우기
