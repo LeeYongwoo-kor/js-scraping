@@ -1,8 +1,7 @@
-import puppeteer from "puppeteer";
 import fs from "fs";
-import path from "path";
+import puppeteer from "puppeteer";
 
-const __dirname = "JSON";
+const __dirname = "Json";
 
 const getOneYear = (currentDate) => {
   let oneYear = [];
@@ -18,7 +17,6 @@ const getOneYear = (currentDate) => {
       month = 12;
     }
   }
-
   return oneYear;
 };
 
@@ -34,11 +32,9 @@ const getLoto6Info = async (yyyymm) => {
   try {
     if (!browser.isConnected) throw new Error("Connection Failure");
     const page = await browser.newPage();
-
     await page.goto(
       `https://takarakuji.rakuten.co.jp/backnumber/loto6/${yyyymm}`
     );
-    if (!browser.isConnected) return "Not Connect";
     const loto6List = await page.$$("table.tblType02");
 
     for (const loto of loto6List) {
@@ -73,19 +69,19 @@ const getLoto6Info = async (yyyymm) => {
         numbers[numbers.length - 1].replace(/[^0-9]/g, "");
       loto6Info[roundNum]["prize"] = prizeObj;
       loto6Info[roundNum]["carryOver"] =
-        parseInt(prize[prize.length - 1].replace(/,/g, "")) ||
+        parseInt(prize[prize.length - 1].replace(/,/g, "")) ??
         prize[prize.length - 1];
     }
   } catch (e) {
     console.log(e);
   } finally {
-    browser.close();
+    await browser.close();
   }
 
   return loto6Info;
 };
 
-const getLoto6InfoOneYear = async () => {
+const getLoto6InfoOneYear = () => {
   const promises = [];
   const currentDate = getDate();
   const oneYear = getOneYear(currentDate);
@@ -97,9 +93,12 @@ const getLoto6InfoOneYear = async () => {
   Promise.all(promises)
     .then((res) => {
       const lotoObj = JSON.stringify(res);
-      fs.writeFile(`../${__dirname}/loto6.json`, lotoObj, (err, result) => {
-        if (err) console.log("Error!!", err);
-        if (result) console.log("File saved successfully!! よっしゃー!");
+      fs.writeFile(`../${__dirname}/loto6.json`, lotoObj, (err) => {
+        if (err) {
+          console.log("Error!!", err);
+        } else {
+          console.log("File saved successfully!! よっしゃー!");
+        }
       });
     })
     .catch((e) => console.log(e));
