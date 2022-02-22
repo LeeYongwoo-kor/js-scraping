@@ -1,5 +1,8 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
+import path from "path";
+
+const __dirname = "JSON";
 
 const getOneYear = (currentDate) => {
   let oneYear = [];
@@ -93,9 +96,10 @@ const getLoto6InfoOneYear = async () => {
 
   Promise.all(promises)
     .then((res) => {
-      const loto6Info = JSON.stringify(res);
-      fs.writeFile("loto6.json", loto6Info, (err, result) => {
+      const lotoObj = JSON.stringify(res);
+      fs.writeFile(`../${__dirname}/loto6.json`, lotoObj, (err, result) => {
         if (err) console.log("Error!!", err);
+        if (result) console.log("File saved successfully!! よっしゃー!");
       });
     })
     .catch((e) => console.log(e));
