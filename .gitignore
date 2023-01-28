@@ -1,6 +1,7 @@
 /node_modules
-/Json
+/JSON
 
 *.png
 *.pdf
+
 .eslintrc.js

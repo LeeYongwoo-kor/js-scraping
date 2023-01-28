@@ -1,12 +1,14 @@
 {
   "dependencies": {
-    "puppeteer": "^13.3.2"
+    "puppeteer": "^13.3.2",
+    "puppeteer-core": "^19.6.1"
   },
   "name": "js-scraping",
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "start": "cd Data-Crawling && node getMenuInfo.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
