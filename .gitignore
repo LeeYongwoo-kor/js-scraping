@@ -1,5 +1,9 @@
 /node_modules
 /JSON
+/Data-Crawling/JSON
+/Data-Crawling/image
+
+Menu.tsx
 
 *.png
 *.pdf

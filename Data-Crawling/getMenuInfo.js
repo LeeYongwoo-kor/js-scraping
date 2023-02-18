@@ -1,7 +1,11 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
+import https from "https";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const __dirname = "Json";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const drink = [
   "カクテル",
@@ -11,7 +15,6 @@ const drink = [
   "焼酎",
   "日本酒",
 ];
-const dessert = ["デザート"];
 
 const changeNameList = {
   特選フルーツトマト: "特選フルーツトマト『きわめ』加藤農園",
@@ -29,117 +32,233 @@ const changeNameList = {
   鳳凰美田: "【鳳凰美田】（初しぼり純米吟醸酒）",
 };
 
-(async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-  await page.goto(
-    "https://dining-menu.com/menu_system/sample_menu3/top.php?sc=215036&n=0&r=1Y"
-  );
+const recommendList = [
+  "あん肝（山口県産）",
+  "しめさば",
+  "カニトースト（１枚）",
+  "黒毛和牛ロースステーキ",
+];
 
-  const categories = await page.$$eval("table[id^=cate_]", (nodes) => {
-    return nodes.map((node) => {
-      const name = node.querySelector("td").textContent.replace(/\t|\n/g, "");
-      return name;
+const getMenuImageUrlList = async () => {
+  try {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto(
+      "https://dining-menu.com/menu_system/sample_menu3/top.php?sc=215036&n=0&r=1Y"
+    );
+
+    // カテゴリーの抽出(sub)
+    const categories = await page.$$eval("table[id^=cate_]", (nodes) => {
+      return nodes.map((node) => {
+        const name = node
+          ?.querySelector("td")
+          ?.textContent.replace(/\t|\n/g, "");
+        return name;
+      });
     });
-  });
 
-  const menu = await page.$$eval(
-    "div[id^=menu_]",
-    (nodes, categories, drink, dessert, changeNameList) => {
-      let menuId = 1;
-      return nodes.map((node, idx) => {
-        const sub = categories[idx].replaceAll(/[【】]|[\(].+/g, "");
-        const dishes = Array.from(node.querySelectorAll("td > div"));
-        const details = dishes.reduce((acc, dish) => {
-          let category = 0;
-          let alcohol = 0;
-          const div = Array.from(dish.querySelectorAll("div"));
-          const isDrink = drink.some((el) => categories[idx].indexOf(el) > -1);
-          if (isDrink) {
-            category = 1;
-          } else if (categories[idx]?.includes(dessert)) {
-            category = 2;
+    // メニュー抽出
+    const menu = await page.$$eval(
+      "div[id^=menu_]",
+      (nodes, categories, drink, changeNameList, recommendList) => {
+        return nodes.map((node, idx) => {
+          let recommendation = 0;
+          const sub =
+            categories && categories[idx].replaceAll(/[【】]|[\(].+/g, "");
+          if (sub === "おすすめ") {
+            recommendation = 1;
           }
-          const status = div.length > 1 ? 1 : 0;
-          const dishInfo = div.length > 1 ? div[1] : div[0];
-          let name = dishInfo.querySelector("p").textContent;
-          if (name.includes("…")) {
-            for (const [key, value] of Object.entries(changeNameList)) {
-              if (name.includes(key)) {
-                name = value;
-                break;
+          const dishes = Array.from(node.querySelectorAll("td > div"));
+          const details = dishes.reduce((acc, dish) => {
+            let category = 0;
+            let alcohol = 0;
+            const div = Array.from(dish.querySelectorAll("div"));
+            const isDrink = drink?.some(
+              (el) => categories && categories[idx].indexOf(el) > -1
+            );
+            if (isDrink) {
+              category = 1;
+            } else if (categories && categories[idx]?.includes(["デザート"])) {
+              category = 2;
+            }
+            const status = div.length > 1 ? 1 : 0;
+            const dishInfo = div.length > 1 ? div[1] : div[0];
+            let name = dishInfo?.querySelector("p")?.textContent;
+            if (name?.includes("…")) {
+              for (const [key, value] of Object.entries(changeNameList)) {
+                if (name.includes(key)) {
+                  name = value;
+                  break;
+                }
               }
             }
-          }
-          if (name.includes("【N】")) {
-            name = name.replaceAll("【N】", "");
-          }
-          const recommendation = 0;
-          const description = "";
-          const price = dishInfo
-            .querySelector("span")
-            .textContent.replace(/[^0-9]/g, "");
-          const imageUrl = dish.querySelector("img").src;
-          let regdate = "00000000";
-          try {
-            const extractDate = imageUrl
-              .split("/")
-              .at(-1)
-              .replace("hosei_", "")
-              .substring(0, 8);
-            regdate = `${extractDate.slice(0, 4)}-${extractDate.slice(
-              4,
-              6
-            )}-${extractDate.slice(6)}`;
-          } catch (err) {
-            console.error(err);
-          }
+            // if (recommendList.find((el) => name.indexOf(el) > -1)) {
+            //   recommendation = 1;
+            // }
+            if (name?.includes("【N】")) {
+              alcohol = 1;
+              name = name.replaceAll("【N】", "");
+            }
+            const description = "";
+            const price = dishInfo
+              ?.querySelector("span")
+              ?.textContent.replace(/[^0-9]/g, "");
+            const imageUrl = dish?.querySelector("img").src;
+            let regdate = "20230115";
+            try {
+              const extractDate = imageUrl
+                ?.split("/")
+                ?.at(-1)
+                ?.replace("hosei_", "")
+                ?.substring(0, 8);
+              regdate = `${extractDate?.slice(0, 4)}-${extractDate?.slice(
+                4,
+                6
+              )}-${extractDate?.slice(6)}`;
+            } catch (err) {
+              console.error("Date Format Error: ", err.message);
+            }
 
-          const obj = {
-            id: menuId++,
-            category,
-            sub,
-            name,
-            price: +price,
-            imageUrl,
-            status,
-            alcohol,
-            recommendation,
-            description,
-            regdate,
-          };
+            const obj = {
+              category,
+              sub,
+              name,
+              price: +price || 0,
+              imageUrl,
+              status,
+              alcohol,
+              recommendation,
+              description,
+              regdate,
+            };
 
-          return [...(acc || []), obj];
-        }, []);
+            return [...(acc || []), obj];
+          }, []);
 
-        return details;
-      });
-    },
-    categories,
-    drink,
-    dessert,
-    changeNameList
-  );
+          return details;
+        });
+      },
+      categories,
+      drink,
+      changeNameList,
+      recommendList
+    );
 
-  const flatMenu = menu.flat();
+    await browser.close();
 
-  const imageUrl = flatMenu.map((dish) => {
-    const { imageUrl } = dish;
+    const flatMenu = menu?.flat();
+
+    const sortMenu = flatMenu.sort((a, b) => {
+      if (a.recommendation > b.recommendation) {
+        return -1;
+      }
+
+      const regDateA = new Date(a.regdate);
+      const regDateB = new Date(b.regdate);
+
+      if (regDateA.getTime() > regDateB.getTime()) {
+        return -1;
+      }
+      if (regDateA.getTime() < regDateB.getTime()) {
+        return 1;
+      }
+      if (a.name < b.name) {
+        return -1;
+      }
+      if (a.name > b.name) {
+        return 1;
+      }
+
+      return 0;
+    });
+
+    const completedMenu = sortMenu.map((dish, idx) => {
+      return { id: idx + 1, ...dish };
+    });
+
+    const folderName = "JSON";
+    const fileName = "menu.json";
+
+    // メニューデータをjsonに保存
+    try {
+      fs.writeFileSync(
+        __dirname + `\\${folderName}\\${fileName}`,
+        JSON.stringify(completedMenu)
+      );
+      console.log("********** MENU DATA CREATION SUCCEEDED!!! **********");
+    } catch (fserr) {
+      console.error(err.message);
+    }
+
+    const imageUrl = completedMenu.map((dish) => {
+      const { imageUrl } = dish;
+      return imageUrl;
+    });
+
+    // イメージデータを返却
     return imageUrl;
-  });
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+  }
+};
 
-  // ImageDownload
-  for (let i = 0; i < imageUrl.length; i++) {
-    const viewSource = await page.goto(imageUrl[i]);
-    const buffer = await viewSource.buffer();
-
-    // Change the file path and name to match where you want to save the image
-    fs.writeFileSync(`./menu_img/restaurant_menu_${i}.png`, buffer);
+const downloadImage = async (imageUrlList) => {
+  let errorCount = 0;
+  let successCount = 0;
+  // Ensure that the "image" directory exists
+  const dir = path.join(__dirname, "image");
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir);
   }
 
-  await browser.close();
+  // Download each image and save it as a webp file in the "image" directory
+  for (let i = 0; i < imageUrlList.length; i++) {
+    const filename = `noriyan_dish_${i + 1}.webp`;
+    const filepath = path.join(dir, filename);
 
-  fs.writeFile(`../${__dirname}/menu.json`, JSON.stringify(flatMenu), (err) =>
-    err ? console.log(err) : console.log("SUCCESS!!")
-  );
+    if (fs.existsSync(filepath)) {
+      errorCount++;
+      console.log(`File '${filepath}' already exists, skipping download.`);
+      continue;
+    }
+
+    // It is synchronous but slow.
+    // When switched to asynchronous, success/fail count cannot be counted.
+    await new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(filepath);
+      const request = https.get(imageUrlList[i], function (response) {
+        response.pipe(file);
+        response.on("end", resolve);
+      });
+      request.on("error", function (err) {
+        console.error(
+          `Error occurred while downloading '${imageUrlList[i]}': ${err.message}`
+        );
+        reject(err);
+      });
+      request.on("data", function (data) {
+        successCount++;
+      });
+
+      request.end();
+    })
+      .then((resolve) => successCount++)
+      .catch((err) => errorCount++);
+  }
+
+  return [successCount, errorCount];
+};
+
+(async function () {
+  try {
+    const menuImageUrlList = await getMenuImageUrlList();
+    const [successCount, errorCount] = await downloadImage(menuImageUrlList);
+
+    const files = fs.readdirSync(path.join(__dirname, "image"));
+    console.log("Total number of Image files: ", files.length);
+    console.log("Successful Downloads: ", successCount);
+    console.log("Failed Downloads: ", errorCount);
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+  }
 })();
